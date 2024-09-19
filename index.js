@@ -22,7 +22,10 @@ let isBankChosen = false;
 let isCashWritten = false;
 let isOutput = false;
 let isRefill = false;
-
+let isRequisitesWritten = false;
+let requisites;
+let sumMany;
+let bank = '';
 const outputGroupId = "-4562169457";
 const reffilGroupId = "-4598841007";
 
@@ -48,6 +51,7 @@ bot.hears("ПОПОЛНИТЬ", async (ctx) => {
   isOutput = false;
   isBankChosen = false;
   isCashWritten = false;
+  isRequisitesWritten = false;
   isRefill = true;
 
   await ctx.reply("Выберите банк:", {
@@ -57,14 +61,17 @@ bot.hears("ПОПОЛНИТЬ", async (ctx) => {
 bot.callbackQuery("mbank_button", async (ctx) => {
   await ctx.reply("Вы выбрали MBANK, укажите сумму пополнения(СОМ)");
   isBankChosen = true;
+  bank = 'MBANK';
 });
 bot.callbackQuery("bakai_button", async (ctx) => {
   await ctx.reply("Вы выбрали Bakai, укажите сумму пополнения(СОМ)");
   isBankChosen = true;
+  bank = 'Bakai';
 });
 bot.callbackQuery("optima_button", async (ctx) => {
   await ctx.reply("Вы выбрали Optima, укажите сумму пополнения(СОМ)");
   isBankChosen = true;
+  bank = 'Optima';
 });
 
 bot.hears("ВЫВЕСТИ", async (ctx) => {
@@ -75,6 +82,7 @@ bot.hears("ВЫВЕСТИ", async (ctx) => {
     .text("Bakai", "bakai_button_output")
     .text("Optima", "optima_button_output");
   isRefill = false;
+  isRequisitesWritten = false;
   isBankChosen = false;
   isCashWritten = false;
   isOutput = true;
@@ -87,14 +95,17 @@ bot.hears("ВЫВЕСТИ", async (ctx) => {
 bot.callbackQuery("mbank_button_output", async (ctx) => {
   await ctx.reply("Введите реквизиты для выбранного вами банка:");
   isBankChosen = true;
+  bank = 'MBANK';
 });
 bot.callbackQuery("bakai_button_output", async (ctx) => {
   await ctx.reply("Введите реквизиты для выбранного вами банка:");
   isBankChosen = true;
+  bank = 'Bakai';
 });
 bot.callbackQuery("optima_button_output", async (ctx) => {
   await ctx.reply("Введите реквизиты для выбранного вами банка:");
   isBankChosen = true;
+  bank = 'Optima';
 });
 
 bot.on("msg:text", async (ctx) => {
@@ -105,13 +116,15 @@ bot.on("msg:text", async (ctx) => {
     textToNumber = parseInt(text);
     // console.log("parse to int = ", typeof textToNumber);
   }
-  console.log(isBankChosen);
+  console.log(ctx);
+  
   if (isBankChosen && isRefill) {
     if (typeof textToNumber === "number") {
       //   console.log("text is number");
       if (textToNumber >= 10 && textToNumber <= 10000) {
         isBankChosen = false;
         isCashWritten = true;
+        sumMany = textToNumber;
         await ctx.reply("Введите ваш ID(номер счета от 1XBET)");
         return await ctx.replyWithPhoto(new InputFile("img/example.jpg"));
       } else {
@@ -130,40 +143,46 @@ bot.on("msg:text", async (ctx) => {
       if (text.length === 8) {
         // console.log(text.length, "кол-во символов");
         isCashWritten = false;
-        const userId = text;
+        const xbetId = text;
+
         if (isRefill) {
           await bot.api.sendMessage(
             reffilGroupId,
-            `Новый пользователь хочет пополнить счет. Имя: ${
+            `Новый пользователь хочет пополнить счет.\nИмя: ${
               userInfo?.first_name ?? "Отсуствует"
-            }\nЛогин: ${userInfo?.username ?? "Отсуствует"}\nID: ${userId}`
+            }\nЛогин: ${userInfo?.username ?? "Отсуствует"}\nЧат ID: ${
+              ctx.chatId
+            }\n\n1XBET ID: ${xbetId}\nСпособ: ${bank}\nСумма вывода: ${sumMany}`
           );
-          const urlKeyboard = new InlineKeyboard().url(
-            "ГРУППА ПОПОЛНЕНИЯ",
-            "https://t.me/+i7QcaHtIjqoxMWYy"
-          );
+
+          // const urlKeyboard = new InlineKeyboard().url(
+          //   "ГРУППА ПОПОЛНЕНИЯ",
+          //   "https://t.me/+i7QcaHtIjqoxMWYy"
+          // );
           return await ctx.reply(
             "Супер✅! для дальнейших действия необходимо перейти в группу👇",
-            {
-              reply_markup: urlKeyboard,
-            }
+            // {
+            //   reply_markup: urlKeyboard,
+            // }
           );
         } else if (isOutput) {
           await bot.api.sendMessage(
             outputGroupId,
-            `Новый пользователь хочет вывести средства. Имя: ${
+            `Новый пользователь хочет вывести средства.\nИмя: ${
               userInfo?.first_name ?? "Отсуствует"
-            }\nЛогин: ${userInfo?.username ?? "Отсуствует"}\nID: ${userId}`
+            }\nЛогин: ${
+              userInfo?.username ?? "Отсуствует"
+            }\n\n1XBET ID: ${xbetId}\nСпособ: ${bank}\nРеквизиты: ${requisites}\nСумма вывода: ${sumMany}`
           );
-          const urlKeyboard = new InlineKeyboard().url(
-            "ГРУППА ВЫВОДА",
-            "https://t.me/+dKc-R6orTlNmOTgy"
-          );
+          // const urlKeyboard = new InlineKeyboard().url(
+          //   "ГРУППА ВЫВОДА",
+          //   "https://t.me/+dKc-R6orTlNmOTgy"
+          // );
           return await ctx.reply(
             "Супер✅! для дальнейших действия необходимо перейти в группу👇",
-            {
-              reply_markup: urlKeyboard,
-            }
+            // {
+            //   reply_markup: urlKeyboard,
+            // }
           );
         }
       } else {
@@ -177,6 +196,7 @@ bot.on("msg:text", async (ctx) => {
   if (isOutput && isBankChosen) {
     isCashWritten = true;
     isBankChosen = false;
+    requisites = text;
     await ctx.reply("Введите ваш ID(номер счета от 1XBET)");
     return await ctx.replyWithPhoto(new InputFile("img/example.jpg"));
   }
