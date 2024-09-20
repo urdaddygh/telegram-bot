@@ -22,10 +22,12 @@ let isBankChosen = false;
 let isCashWritten = false;
 let isOutput = false;
 let isRefill = false;
+let waitCheck = false;
 let isRequisitesWritten = false;
 let requisites;
 let sumMany;
 let bank = '';
+let xbetIdGlobal;
 const outputGroupId = "-4562169457";
 const reffilGroupId = "-4598841007";
 
@@ -108,6 +110,28 @@ bot.callbackQuery("optima_button_output", async (ctx) => {
   bank = 'Optima';
 });
 
+bot.on(":photo", async (ctx) => {
+  const userInfo = ctx.from;
+  const userId = userInfo.id;
+  const photos = ctx.message.photo;
+  // Выбираем наивысшего качества (последний элемент в массиве)
+  const highestQualityPhoto = photos[photos.length - 1];
+  if (waitCheck && isRefill) {
+    const caption = `Чек от пользователя:\nИмя: ${
+      userInfo?.first_name ?? "Отсутствует"
+    }\nЛогин: ${
+      userInfo?.username ?? "Отсутствует"
+    }\nID: ${userId}\n1XBET ID: ${xbetIdGlobal}`;
+    // Отправляем фотографию в другую группу
+    await bot.api.sendPhoto(reffilGroupId, highestQualityPhoto.file_id, {
+      caption: caption,
+    });
+    waitCheck = false;
+    isRefill= false;
+    return await ctx.reply("Отлично! Средства поступят после проверки чека");
+  }
+});
+
 bot.on("msg:text", async (ctx) => {
   const userInfo = ctx.update.message.from;
   const text = ctx.update.message.text;
@@ -144,7 +168,7 @@ bot.on("msg:text", async (ctx) => {
         // console.log(text.length, "кол-во символов");
         isCashWritten = false;
         const xbetId = text;
-
+        xbetIdGlobal = text;
         if (isRefill) {
           await bot.api.sendMessage(
             reffilGroupId,
@@ -152,19 +176,25 @@ bot.on("msg:text", async (ctx) => {
               userInfo?.first_name ?? "Отсуствует"
             }\nЛогин: ${userInfo?.username ?? "Отсуствует"}\nЧат ID: ${
               ctx.chatId
-            }\n\n1XBET ID: ${xbetId}\nСпособ: ${bank}\nСумма вывода: ${sumMany}`
+            }\n\n1XBET ID: ${xbetId}\nСпособ: ${bank}\nСумма пополнения: ${sumMany}`
           );
 
-          // const urlKeyboard = new InlineKeyboard().url(
-          //   "ГРУППА ПОПОЛНЕНИЯ",
-          //   "https://t.me/+i7QcaHtIjqoxMWYy"
-          // );
-          return await ctx.reply(
-            "Супер✅! для дальнейших действия необходимо перейти в группу👇",
-            // {
-            //   reply_markup: urlKeyboard,
-            // }
-          );
+          if (bank === "MBANK") {
+            await ctx.reply(
+              `Пополните средства на MBANK по нижеуказанному реквизиту👇\nMBANK: 504061111\nСумма: ${sumMany}\n\nОтправьте скриншот чека`
+            );
+          }
+          if (bank === "Bakai") {
+            await ctx.reply(
+              `Пополните средства на Bakai по нижеуказанному реквизиту👇\nBakai: 7760611111\nСумма: ${sumMany}\n\nОтправьте скриншот чека`
+            );
+          }
+          if (bank === "Optima") {
+            await ctx.reply(
+              `Пополните средства на Optima по нижеуказанному реквизиту👇\nOptima: 4169585351289654\nСумма: ${sumMany}\n\nОтправьте скриншот чека`
+            );
+          }
+          return waitCheck = true;
         } else if (isOutput) {
           await bot.api.sendMessage(
             outputGroupId,
@@ -179,7 +209,7 @@ bot.on("msg:text", async (ctx) => {
           //   "https://t.me/+dKc-R6orTlNmOTgy"
           // );
           return await ctx.reply(
-            "Супер✅! для дальнейших действия необходимо перейти в группу👇",
+            "Супер✅! Ожидайте.",
             // {
             //   reply_markup: urlKeyboard,
             // }
@@ -191,6 +221,12 @@ bot.on("msg:text", async (ctx) => {
     } else {
       await ctx.reply("Нужно ввести только цифры");
     }
+  }
+
+  if(isRefill && waitCheck){
+    await ctx.reply(
+      `Нужно отправить скриншот чека!`
+    );
   }
 
   if (isOutput && isBankChosen) {
