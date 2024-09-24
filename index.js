@@ -28,6 +28,9 @@ function getSession(userId) {
       isRefill: false,
       waitCheck: false,
       isRequisitesWritten: false,
+      isAccepted: false,
+      isRejected: false,
+      waitAnswer:false,
       requisites: '',
       sumMany: '',
       bank: '',
@@ -52,7 +55,6 @@ let shift = 'Не выбран';
 bot.command("start", async (ctx) => {
   clearSession(ctx.from.id);
   const session = getSession(ctx.from.id);
-
   if (ctx.chat.type !== "group") {
     const infoKeyboard = new Keyboard()
       .text("ПОПОЛНИТЬ")
@@ -97,11 +99,6 @@ bot.hears("ПОПОЛНИТЬ", async (ctx) => {
     .text("Bakai", "bakai_button")
     .text("Optima", "optima_button");
 
-    session.isOutput = false;
-    session.isBankChosen = false;
-    session.isCashWritten = false;
-    session.isRequisitesWritten = false;
-    session.waitCheck = false;
     session.isRefill = true;
 
   await ctx.reply("Выберите банк:", {
@@ -139,12 +136,8 @@ bot.hears("ВЫВЕСТИ", async (ctx) => {
     .text("Bakai", "bakai_button_output")
     .text("Optima", "optima_button_output");
     const session = getSession(ctx.from.id);
-  session.isRefill = false;
-  session.isRequisitesWritten = false;
-  session.isBankChosen = false;
-  session.isCashWritten = false;
-  session.waitCheck = false;
-  session.isOutput = true;
+
+    session.isOutput = true;
 
   await ctx.reply("Выберите банк:", {
     reply_markup: inlineKeyboard,
@@ -171,26 +164,54 @@ bot.callbackQuery("optima_button_output", async (ctx) => {
   console.log(session);
 });
 
+bot.callbackQuery("accept", async (ctx) => {
+    const session = getSession(ctx.from.id);
+    if(session.isRefill&&session.waitAnswer){
+    bot.api.sendMessage(ctx.from.id, "Транзакция прошла✅");
+    session.isRefill = false;
+    session.waitAnswer = false;
+    clearSession(ctx.from.id);
+  }
+});
+bot.callbackQuery("reject", async (ctx) => {
+  const session = getSession(ctx.from.id);
+  if(session.isRefill&&session.waitAnswer){
+  bot.api.sendMessage(ctx.from.id, "Транзакция отклонена❌");
+  session.isRefill = false;
+  session.waitAnswer = false;
+  clearSession(ctx.from.id);
+}
+});
+
 bot.on(":photo", async (ctx) => {
   const session = getSession(ctx.from.id);
   const userInfo = ctx.from;
-  const userId = userInfo.id;
+  // const userId = userInfo.id;
   const photos = ctx.message.photo;
   // Выбираем наивысшего качества (последний элемент в массиве)
+
   const highestQualityPhoto = photos[photos.length - 1];
   if (session.waitCheck && session.isRefill) {
     const caption = `Чек от пользователя:\nИмя: ${
       userInfo?.first_name ?? "Отсутствует"
-    }\nЛогин: ${
-      userInfo?.username ?? "Отсутствует"
-    }\nID: ${userId}\n1XBET ID: ${session.xbetIdGlobal}`;
+    }\nЛогин: ${userInfo?.username ?? "Отсутствует"}\nЧат ID: ${
+      ctx.chatId
+    }\n\n1XBET ID: ${session.xbetIdGlobal}\nСпособ: ${
+      session.bank
+    }\nСумма пополнения: ${session.sumMany}\n\nСмена: ${shift}`;
     // Отправляем фотографию в другую группу
+
+    const acceptRejectKeyboard = new InlineKeyboard()
+      .text("Принять", "accept")
+      .text("Отклонить", "reject");
+
+      session.waitCheck = false;
+      session.waitAnswer = true;
+
     await bot.api.sendPhoto(reffilGroupId, highestQualityPhoto.file_id, {
       caption: caption,
+      reply_markup: acceptRejectKeyboard,
     });
-    session.waitCheck = false;
-    session.isRefill= false;
-    clearSession(ctx.from.id);
 
     return await ctx.reply("Отлично! Средства поступят после проверки чека");
   }
@@ -235,14 +256,23 @@ bot.on("msg:text", async (ctx) => {
         const xbetId = text;
         session.xbetIdGlobal = text;
         if (session.isRefill) {
-          await bot.api.sendMessage(
-            reffilGroupId,
-            `Новый пользователь хочет пополнить счет.\nИмя: ${
-              userInfo?.first_name ?? "Отсуствует"
-            }\nЛогин: ${userInfo?.username ?? "Отсуствует"}\nЧат ID: ${
-              ctx.chatId
-            }\n\n1XBET ID: ${xbetId}\nСпособ: ${session.bank}\nСумма пополнения: ${session.sumMany}\n\n\nСмена: ${shift}`
-          );
+          // const acceptRejectKeyboard = new InlineKeyboard()
+          // .text("Принять", "accept")
+          // .text("Отклонить", "reject")
+
+          // await bot.api.sendMessage(
+          //   reffilGroupId,
+          //   `Новый пользователь хочет пополнить счет.\nИмя: ${
+          //     userInfo?.first_name ?? "Отсуствует"
+          //   }\nЛогин: ${userInfo?.username ?? "Отсуствует"}\nЧат ID: ${
+          //     ctx.chatId
+          //   }\n\n1XBET ID: ${xbetId}\nСпособ: ${
+          //     session.bank
+          //   }\nСумма пополнения: ${session.sumMany}\n\n\nСмена: ${shift}`,
+          //   {
+          //     reply_markup: acceptRejectKeyboard,
+          //   }
+          // );
 
           if (session.bank === "MBANK") {
             await ctx.reply(
