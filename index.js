@@ -107,21 +107,24 @@ bot.hears("ПОПОЛНИТЬ", async (ctx) => {
 });
 bot.callbackQuery("mbank_button", async (ctx) => {
   const session = getSession(ctx.from.id);
-  await ctx.reply("Вы выбрали MBANK, укажите сумму пополнения(СОМ)");
-  session.isBankChosen = true;
-  session.bank = 'MBANK';
+    await ctx.reply("Вы выбрали MBANK, укажите сумму пополнения(СОМ)");
+    session.isBankChosen = true;
+    session.bank = 'MBANK';
+    await ctx.deleteMessage();
 });
 bot.callbackQuery("bakai_button", async (ctx) => {
   const session = getSession(ctx.from.id);
-  await ctx.reply("Вы выбрали Bakai, укажите сумму пополнения(СОМ)");
-  session.isBankChosen = true;
-  session.bank = 'Bakai';
+    await ctx.reply("Вы выбрали Bakai, укажите сумму пополнения(СОМ)");
+    session.isBankChosen = true;
+    session.bank = 'Bakai';
+    await ctx.deleteMessage();
 });
 bot.callbackQuery("optima_button", async (ctx) => {
   const session = getSession(ctx.from.id);
-  await ctx.reply("Вы выбрали Optima, укажите сумму пополнения(СОМ)");
-  session.isBankChosen = true;
-  session.bank = 'Optima';
+    await ctx.reply("Вы выбрали Optima, укажите сумму пополнения(СОМ)");
+    session.isBankChosen = true;
+    session.bank = 'Optima';
+    await ctx.deleteMessage();
 });
 
 bot.hears("ВЫВЕСТИ", async (ctx) => {
@@ -250,7 +253,7 @@ bot.on("msg:text", async (ctx) => {
   if (session.isCashWritten) {
     if (typeof textToNumber === "number") {
       // console.log("text is number");
-      if (text.length === 8) {
+      if (text.length === 9) {
         // console.log(text.length, "кол-во символов");
         session.isCashWritten = false;
         const xbetId = text;
@@ -311,7 +314,7 @@ bot.on("msg:text", async (ctx) => {
           );
         }
       } else {
-        await ctx.reply("Кол-во цифр должно равняться 8");
+        await ctx.reply("Кол-во цифр должно равняться 9");
       }
     } else {
       await ctx.reply("Нужно ввести только цифры");
