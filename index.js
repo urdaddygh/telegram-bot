@@ -46,23 +46,91 @@ function clearSession(userId) {
 
 const outputGroupId = "-4562169457";
 const reffilGroupId = "-4598841007";
+const infoChanelId = "-1002343039869";
 
 let mbankRequisites = '504061111';
 let optimaRequisites = '4169585351289654';
 let bakaiRequisites = '7760611111';
 let shift = 'Не выбран';
 
-bot.command("start", async (ctx) => {
-  clearSession(ctx.from.id);
-  const session = getSession(ctx.from.id);
-  if (ctx.chat.type !== "group") {
-    const infoKeyboard = new Keyboard()
+const defaultKeyboard = new Keyboard()
       .text("ПОПОЛНИТЬ")
       .text("ВЫВЕСТИ")
       .resized();
-    await ctx.reply("Приветствую на кассе 1Хбет", {
-      reply_markup: infoKeyboard,
-    });
+
+const cancelKeyboard = new Keyboard()
+      .text("Отмена")
+      .resized();
+
+bot.command("start", async (ctx) => {
+  clearSession(ctx.from.id);
+  // console.log(ctx.message)
+  if (ctx.chat.type !== "group") {
+    const userId = ctx.from.id;
+    try {
+      // Получаем информацию о пользователе в канале
+      const memberInfo = await ctx.api.getChatMember(infoChanelId, userId);
+
+      // Проверяем статус подписки
+      if (
+        memberInfo.status === "member" ||
+        memberInfo.status === "administrator" ||
+        memberInfo.status === "creator"
+      ) {
+        await ctx.reply("Приветствую на кассе 1Хбет", {
+          reply_markup: defaultKeyboard,
+        });
+      } else {
+        const inlineKeyboard = new InlineKeyboard().url(
+            "Подписаться на канал",
+            "https://t.me/FastPlay4"
+          )
+        .text("Я подписался", "subscribed");
+
+        await ctx.reply("Вы не подписаны на канал, пожалуйста, подпишитесь.", {
+          reply_markup:inlineKeyboard
+        });
+      }
+    } catch (error) {
+      // Ошибка, если пользователь не найден или канал недоступен
+      await ctx.reply("Не удалось проверить подписку, попробуйте позже.");
+      console.error(error);
+    }
+  }
+});
+
+bot.callbackQuery("subscribed", async (ctx) => {
+  clearSession(ctx.from.id);
+  if (ctx.chat.type !== "group") {
+    const userId = ctx.from.id;
+    try {
+      // Получаем информацию о пользователе в канале
+      const memberInfo = await ctx.api.getChatMember(infoChanelId, userId);
+
+      // Проверяем статус подписки
+      if (
+        memberInfo.status === "member" ||
+        memberInfo.status === "administrator" ||
+        memberInfo.status === "creator"
+      ) {
+        await ctx.reply("Приветствую на кассе 1Хбет", {
+          reply_markup: defaultKeyboard,
+        });
+        await ctx.deleteMessage();
+      } else {
+        const inlineKeyboard = new InlineKeyboard()
+          .url("Подписаться на канал", "https://t.me/FastPlay4")
+          .text("Я подписался", "subscribed");
+
+        await ctx.reply("Вы не подписаны на канал, пожалуйста, подпишитесь.", {
+          reply_markup: inlineKeyboard,
+        });
+      }
+    } catch (error) {
+      // Ошибка, если пользователь не найден или канал недоступен
+      await ctx.reply("Не удалось проверить подписку, попробуйте позже.");
+      console.error(error);
+    }
   }
 });
 
@@ -86,25 +154,41 @@ bot.command("daniyar", async (ctx) => {
   }
 });
 
+// bot.command("test", async (ctx) => {
+//   console.log(ctx)
+// });
+
+bot.hears("Отмена", async (ctx) => {
+  if (ctx.chat.type !== "group") {
+    clearSession(ctx.from.id);
+    await ctx.reply("Операции отменены", {
+      reply_markup: defaultKeyboard,
+    });
+  }
+});
+
 bot.hears("ПОПОЛНИТЬ", async (ctx) => {
   const session = getSession(ctx.from.id);
-  await ctx.reply("Укажите удобный вам способ пополнения счета",{
+  await ctx.reply("Укажите удобный вам способ пополнения счета", {
     reply_markup: {
-      remove_keyboard:true
+      keyboard: cancelKeyboard.build(),
+      one_time_keyboard: true,
+      resize_keyboard: true,
     },
   });
-
+  // console.log("after", session);
   const inlineKeyboard = new InlineKeyboard()
     .text("MBANK", "mbank_button")
     .text("Bakai", "bakai_button")
     .text("Optima", "optima_button");
 
-    session.isRefill = true;
+  session.isRefill = true;
 
   await ctx.reply("Выберите банк:", {
     reply_markup: inlineKeyboard,
   });
 });
+
 bot.callbackQuery("mbank_button", async (ctx) => {
   const session = getSession(ctx.from.id);
     await ctx.reply("Вы выбрали MBANK, укажите сумму пополнения(СОМ)");
@@ -130,7 +214,9 @@ bot.callbackQuery("optima_button", async (ctx) => {
 bot.hears("ВЫВЕСТИ", async (ctx) => {
   await ctx.reply("Укажите удобный вам способ вывод средств", {
     reply_markup: {
-      remove_keyboard:true
+      keyboard: cancelKeyboard.build(),
+      one_time_keyboard: true,
+      resize_keyboard: true,
     },
   });
 
@@ -164,7 +250,7 @@ bot.callbackQuery("optima_button_output", async (ctx) => {
   await ctx.reply("Введите реквизиты для выбранного вами банка:");
   session.isBankChosen = true;
   session.bank = 'Optima';
-  console.log(session);
+  // console.log(session);
 });
 
 bot.callbackQuery("accept", async (ctx) => {
@@ -216,7 +302,9 @@ bot.on(":photo", async (ctx) => {
       reply_markup: acceptRejectKeyboard,
     });
 
-    return await ctx.reply("Отлично! Средства поступят после проверки чека");
+    return await ctx.reply("Отлично! Средства поступят после проверки чека", {
+      reply_markup:{remove_keyboard:true}
+    });
   }
 });
 
@@ -308,9 +396,9 @@ bot.on("msg:text", async (ctx) => {
           // );
           return await ctx.reply(
             "Супер✅! Ожидайте.",
-            // {
-            //   reply_markup: urlKeyboard,
-            // }
+            {
+              reply_markup: {remove_keyboard:true},
+            }
           );
         }
       } else {
@@ -322,18 +410,38 @@ bot.on("msg:text", async (ctx) => {
   }
 
   if(session.isRefill && session.waitCheck){
-    await ctx.reply(
+    return await ctx.reply(
       `Нужно отправить скриншот чека!`
     );
   }
 
+  if (session.isOutput && session.isRequisitesWritten) {
+    if (typeof textToNumber === "number") {
+      //   console.log("text is number");
+      if (textToNumber >= 10 && textToNumber <= 10000) {
+        session.isRequisitesWritten = false;
+        session.isCashWritten = true;
+        session.sumMany = textToNumber;
+        await ctx.reply("Введите ваш ID(номер счета от 1XBET)");
+        return await ctx.replyWithPhoto(new InputFile("img/example.jpg"));
+      } else {
+        await ctx.reply(
+          "Сумма вывода указана некорректна, попробуйте снова \n\nМинимум: 10 сом\nМаксимум: 10000 сом"
+        );
+      }
+    } else {
+      await ctx.reply("Введите сумму цифрами");
+    }
+  }
+
   if (session.isOutput && session.isBankChosen) {
-    session.isCashWritten = true;
+    session.isRequisitesWritten = true;
     session.isBankChosen = false;
     session.requisites = text;
-    await ctx.reply("Введите ваш ID(номер счета от 1XBET)");
-    return await ctx.replyWithPhoto(new InputFile("img/example.jpg"));
+    return await ctx.reply("Введите сумму вывода средств(СОМ)");
   }
+
+  
 });
 
 bot.catch((err) => {
